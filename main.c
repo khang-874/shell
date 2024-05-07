@@ -22,81 +22,14 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include "functions.h"
+
 #define BUFFER_SIZE 1<<16
-#define ARR_SIZE 1<<16
 #define COMM_SIZE 32
 
 const char *proc_prefix = "/proc";
 
-extern char **environ;
-
-//Store the environment variable pair
-struct Shell_environ{
-	char *variable;
-	char *variable_value;
-}shell_environ[ARR_SIZE];
-
-//Keep track of how many shell variable currently
-
-int shell_environ_number = 0;
-
-void get_shell_environ(char *variable, char **result){
-	for(int i = 0; i < shell_environ_number; ++i){
-		if(!strcmp(variable, shell_environ[i].variable)){
-			*result = shell_environ[i].variable_value;
-			break;
-		}		
-	}
-}
-void extract_replace_env_variable(char **str){
-	char result[ARR_SIZE];
-	int strSize = strlen(*str);
-
-	char *it = *str;
-	
-	char *current = result;
-	while(*it != '\0'){
-		//If it is not $ sign, keep copying
-		if(*it != '$'){
-			*current = *it;
-			current++;
-			it++;
-		}else{
-			//Skip the dolar sign
-			it++;
-			char variable[ARR_SIZE];
-			char *cp = variable;
-			//Get the variable name until meet the separator or another $ sign
-			while(*it != '\0' && *it != '/' && *it != '.' && *it != '$'){
-				*cp = *it;
-				it++;
-				cp++;
-			}
-			*cp = '\0';
-			if(getenv(variable) != NULL){
-				strcpy(current, getenv(variable));
-				current += strlen(getenv(variable));
-			}else{
-				//check if it exist in shell variable
-				char *variable_value = NULL;
-				get_shell_environ(variable, &variable_value);
-				if(variable_value != NULL){
-					strcpy(current, variable_value);
-					current += strlen(variable_value);
-					continue;
-				}
-				//If it still not exist, then just act as if it is normal string 
-				*current = '$';
-				current++;
-				strcpy(current, variable);
-				current += strlen(variable);
-			}
-		}
-	}
-	*str = result;
-}
-
-void parse_args(char *buffer, char** args, 
+void parse_args(Shell_environ* shell_environ, int num_shell_environ, char *buffer, char** args, 
                 size_t args_size, size_t *nargs)
 {
         char *buf_args[args_size]; /* You need C99 */
@@ -115,7 +48,7 @@ void parse_args(char *buffer, char** args,
         for (j=i=0; buf_args[i]!=NULL; i++){
                 if (strlen(buf_args[i]) > 0){
 			if(strchr(buf_args[i], '$') != NULL){
-				extract_replace_env_variable(&buf_args[i]);
+				extract_replace_env_variable(shell_environ, num_shell_environ,&buf_args[i]);
 			}
                         args[j++]=buf_args[i];
 		}
@@ -322,73 +255,6 @@ void run_program(char *args[], int background, char *stdout_fn,
         }
 }
 
-void set_shell_variable(char *variable, char *variable_value){
-	if(shell_environ_number >= ARR_SIZE){
-		printf("Not enough memory for extra shell variable\n");
-		return;
-	}
-
-	shell_environ[shell_environ_number].variable = variable;
-	shell_environ[shell_environ_number].variable_value = variable_value;
-	shell_environ_number++;
-	
-}
-char set_environment_variable(char **args, int nargs, char ***envp){
-	//flag will hold the start index of the variable in args array
-	char flag = 0;
-	for(int i = 0; i < nargs; ++i){
-		if(strchr(args[i], '=') != NULL){
-			flag = 1;
-			break;
-		}
-	}
-	if(!flag)
-		return 0;
-	if(!strcmp(args[0], "export")){
-                flag = 2;
-        }else{
-                flag = 1;
-        }
-	
-	char variable[ARR_SIZE];
-	char *cp = variable;
-	char *it = args[flag - 1];
-	//take all part before '=' sign
-	while(*it != '\0' && *it != '='){
-		*cp = *it;
-		++cp;
-		++it;
-	}
-	
-
-	char variable_value[ARR_SIZE];
-	cp = variable_value;
-
-	//copy from the rest of the string except '='
-	//it++ to skip the '='
-	it++;
-	strcpy(cp, it);
-	cp += strlen(it);
-
-	//copy from the rest of the args array, append the space if neccesary 
-	for(int i = flag; i < nargs; ++i){
-		it = args[i];
-		*cp = ' ';
-		cp++;
-		strcpy(cp, it);
-		cp += strlen(it);
-	}
-	if(flag == 2){
-		//Set the environment variable
-		setenv(variable, variable_value, 1);
-		//Reassign the envp variable to the current environ
-		*envp = environ;
-	}else{
-		set_shell_variable(variable, variable_value);
-	}
-	
-	return flag;
-}
 void prompt_loop(char *username, char *path, char *envp[]) {
         char buffer[BUFFER_SIZE];
         char *args[ARR_SIZE];
@@ -398,7 +264,10 @@ void prompt_loop(char *username, char *path, char *envp[]) {
         char *s;
         int i, j;
         char *stdout_fn;
-        
+
+        Shell_environ shell_environ[ARR_SIZE];
+        int num_shell_environ = 0;
+
         while(1){
                 printf("%s $ ", username);
                 s = fgets(buffer, BUFFER_SIZE, stdin);
@@ -409,7 +278,7 @@ void prompt_loop(char *username, char *path, char *envp[]) {
                         exit(0);
                 }
                 
-                parse_args(buffer, args, ARR_SIZE, &nargs); 
+                parse_args(shell_environ, num_shell_environ, buffer, args, ARR_SIZE, &nargs); 
  
                 if (nargs==0) continue;
                 
@@ -417,7 +286,7 @@ void prompt_loop(char *username, char *path, char *envp[]) {
                         exit(0);
                 }
 		
-		if(set_environment_variable(args, nargs, &envp)){
+		if(set_environment_variable(shell_environ, &num_shell_environ, args, nargs)){
 			continue;
 		}
                 if (!strcmp(args[0], "plist")) {
@@ -473,8 +342,8 @@ int main(int argc, char *argv[], char *envp[])
                 fprintf(stderr, "Couldn't register SIGHUP handler.\n");
         }
         
-        username = find_env("USER", default_username, envp);
-        path = find_env("PATH", default_path, envp);
+        username = getenv("USER");
+        path = getenv("PATH");
 
         prompt_loop(username, path, envp);
         
