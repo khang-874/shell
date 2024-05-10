@@ -51,11 +51,13 @@ void parse_args(Shell_environ* shell_environ, int num_shell_environ, char *buffe
                 if ((*cp != NULL) && (++cp >= &buf_args[args_size]))
                         break;
         }
+
+
         for (j=i=0; buf_args[i]!=NULL; i++){
                 if (strlen(buf_args[i]) > 0){
-			if(strchr(buf_args[i], '$') != NULL){
+                        if((strchr(buf_args[i], '$') != NULL)){
 				extract_replace_env_variable(shell_environ, num_shell_environ,&buf_args[i]);
-			}
+                        }
                         args[j++]=buf_args[i];
 		}
         }
