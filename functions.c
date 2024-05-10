@@ -33,6 +33,7 @@ void extract_replace_env_variable(Shell_environ* shell_environ, int num_shell_en
 			}else{
 				//check if it exist in shell variable
 				char variable_value[ARR_SIZE];
+				variable_value[0] = 0;
 				get_shell_environ(shell_environ,num_shell_environ, variable, variable_value);
 				if(strlen(variable_value) != 0){
 					strcpy(current, variable_value);
