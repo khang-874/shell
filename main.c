@@ -238,7 +238,7 @@ void run_program(char *args[], int background, char *stdout_fn,
         int fd, *ret_status = NULL;
         char bin_fn[BUFFER_SIZE];
 
-        printf("pid: %d\n", pid);
+        pid = fork();
         if (pid) {
                 if (background) {
                         fprintf(stderr,
@@ -277,7 +277,7 @@ void prompt_loop(char *username, char *path, char *envp[]) {
         int num_shell_environ = 0;
 
         while(1){
-                printf("%s $ ", username);
+                printf("%s @ ", username);
                 s = fgets(buffer, BUFFER_SIZE, stdin);
                 
                 if (s == NULL) {

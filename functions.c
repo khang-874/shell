@@ -47,7 +47,6 @@ void extract_replace_env_variable(Shell_environ* shell_environ, int num_shell_en
 				current += strlen(variable);
 			}
 		}
-		printf("%c\n", *it);
 	}
 	*str = result;
 }
