@@ -7,9 +7,7 @@
 void extract_replace_env_variable(Shell_environ* shell_environ, int num_shell_environ,char **str){
 	char result[ARR_SIZE];
 	int strSize = strlen(*str);
-
 	char *it = *str;
-	
 	char *current = result;
 	while(*it != '\0'){
 		//If it is not $ sign, keep copying
@@ -34,9 +32,10 @@ void extract_replace_env_variable(Shell_environ* shell_environ, int num_shell_en
 				current += strlen(getenv(variable));
 			}else{
 				//check if it exist in shell variable
-				char *variable_value = NULL;
+				char variable_value[ARR_SIZE];
+				variable_value[0] = 0;
 				get_shell_environ(shell_environ,num_shell_environ, variable, variable_value);
-				if(variable_value != NULL){
+				if(strlen(variable_value) != 0){
 					strcpy(current, variable_value);
 					current += strlen(variable_value);
 					continue;
@@ -48,6 +47,7 @@ void extract_replace_env_variable(Shell_environ* shell_environ, int num_shell_en
 				current += strlen(variable);
 			}
 		}
+		printf("%c\n", *it);
 	}
 	*str = result;
 }

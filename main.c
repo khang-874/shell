@@ -32,6 +32,13 @@ const char *proc_prefix = "/proc";
 void parse_args(Shell_environ* shell_environ, int num_shell_environ, char *buffer, char** args, 
                 size_t args_size, size_t *nargs)
 {
+        /*
+                * this function takes in a string with multiple arguments in it, and
+                * separates the arguments into separate strings.  This is a
+                * destructive operation, as it writes '\0' over the spaces.
+                * If the argument has a $ in it, it will replace the $ with the
+                * value of the environment variable.
+        */
         char *buf_args[args_size]; /* You need C99 */
         char **cp, *wbuf;
         size_t i, j;
@@ -44,12 +51,13 @@ void parse_args(Shell_environ* shell_environ, int num_shell_environ, char *buffe
                 if ((*cp != NULL) && (++cp >= &buf_args[args_size]))
                         break;
         }
-        
+
+
         for (j=i=0; buf_args[i]!=NULL; i++){
                 if (strlen(buf_args[i]) > 0){
-			if(strchr(buf_args[i], '$') != NULL){
+                        if((strchr(buf_args[i], '$') != NULL)){
 				extract_replace_env_variable(shell_environ, num_shell_environ,&buf_args[i]);
-			}
+                        }
                         args[j++]=buf_args[i];
 		}
         }
@@ -230,7 +238,7 @@ void run_program(char *args[], int background, char *stdout_fn,
         int fd, *ret_status = NULL;
         char bin_fn[BUFFER_SIZE];
 
-        pid = fork();
+        printf("pid: %d\n", pid);
         if (pid) {
                 if (background) {
                         fprintf(stderr,
@@ -279,7 +287,7 @@ void prompt_loop(char *username, char *path, char *envp[]) {
                 }
                 
                 parse_args(shell_environ, num_shell_environ, buffer, args, ARR_SIZE, &nargs); 
- 
+                
                 if (nargs==0) continue;
                 
                 if (!strcmp(args[0], "exit")) {
